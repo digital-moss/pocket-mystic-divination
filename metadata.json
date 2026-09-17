@@ -1,0 +1,10 @@
+{
+  "name": "Pocket Mystic - Customizable Divination Tool - Tarot, Runes, I-Ching",
+  "description": "Tactile offline daily draw divination app with e-ink aesthetic, shake-to-draw sensor shuffling, 3D card flips, custom zip deck import, and draw journal.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
