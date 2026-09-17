@@ -618,12 +618,48 @@ export const I_CHING_HEXAGRAMS: ParsedCard[] = [
   }
 ];
 
+export const RIDER_WAITE_FULL_DECK: ParsedCard[] = [
+  ...TAROT_MAJOR_ARCANA.map((c, idx) => ({
+    ...c,
+    imageUrl: `/tarot/m${String(idx).padStart(2, '0')}.jpg`,
+    arcana: 'major' as const
+  })),
+  ...TAROT_MINOR_ARCANA.map((c, idx) => {
+    let suitPrefix = 'w';
+    let suitIdx = idx + 1;
+    if (idx >= 14 && idx < 28) {
+      suitPrefix = 'c';
+      suitIdx = idx - 13;
+    } else if (idx >= 28 && idx < 42) {
+      suitPrefix = 's';
+      suitIdx = idx - 27;
+    } else if (idx >= 42) {
+      suitPrefix = 'p';
+      suitIdx = idx - 41;
+    }
+    return {
+      ...c,
+      imageUrl: `/tarot/${suitPrefix}${String(suitIdx).padStart(2, '0')}.jpg`,
+      arcana: 'minor' as const
+    };
+  })
+];
+
 export const TAROT_FULL_DECK: ParsedCard[] = [
   ...TAROT_MAJOR_ARCANA.map((c) => ({ ...c, arcana: 'major' as const })),
   ...TAROT_MINOR_ARCANA
 ];
 
 export const INITIAL_DECKS: Deck[] = [
+  {
+    id: 'rider-waite-tarot',
+    name: 'Rider-Waite Tarot',
+    description: 'The iconic Rider-Waite-Smith 78-card deck featuring authentic Pamela Colman Smith historical artwork and rich traditional symbolism.',
+    cardCount: 78,
+    isCustom: false,
+    cards: RIDER_WAITE_FULL_DECK,
+    accentColor: '#d4af37'
+  },
   {
     id: 'tarot-full-deck',
     name: 'Tarot (Both Arcana)',
