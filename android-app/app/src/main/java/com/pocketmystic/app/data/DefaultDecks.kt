@@ -70,7 +70,8 @@ object DefaultDecks {
     )
 
     val RIDER_WAITE_CARDS = TAROT_MAJOR_ARCANA.mapIndexed { idx, card ->
-        card.copy(imageUrl = riderWaiteUrls.getOrElse(idx) { card.imageUrl })
+        val filename = String.format("m%02d.jpg", idx)
+        card.copy(imageUrl = "file:///android_asset/tarot/$filename")
     }
 
     val INITIAL_DECKS = listOf(
