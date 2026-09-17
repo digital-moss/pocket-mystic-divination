@@ -7,7 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,14 +20,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pocketmystic.app.ui.DarkEInkBackground
 import com.pocketmystic.app.ui.ShakeToDrawScreen
 import com.pocketmystic.app.viewmodel.MysticViewModel
-import com.pocketmystic.app.data.AppDeck
+// Removed unused import
+
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MysticViewModel by viewModels()
 
     private val zipFilePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.GetContent(),
+
     ) { uri ->
         uri?.let {
             viewModel.importZipDeck(it, "Custom Zip Deck")
@@ -44,22 +46,24 @@ class MainActivity : ComponentActivity() {
             
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = DarkEInkBackground
+                color = DarkEInkBackground,
             ) {
                 Scaffold(
                     bottomBar = {
                         NavigationBar(
                             containerColor = DarkEInkBackground,
-                            contentColor = MaterialTheme.colorScheme.onSurface
+                            contentColor = MaterialTheme.colorScheme.onSurface,
                         ) {
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.Refresh, contentDescription = "Draw") },
                                 label = { Text("Draw") },
                                 selected = currentRoute == "draw",
-                                onClick = { navController.navigate("draw") }
+                                onClick = { navController.navigate("draw") },
+
                             )
                             NavigationBarItem(
-                                icon = { Icon(Icons.Default.List, contentDescription = "Decks") },
+                                icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Decks") },
+
                                 label = { Text("Decks") },
                                 selected = currentRoute == "decks",
                                 onClick = { navController.navigate("decks") }
@@ -82,11 +86,10 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("decks") {
                             DeckManagerScreen(
-                                viewModel = viewModel,
-                                onImportDeck = {
-                                    zipFilePickerLauncher.launch("application/zip")
-                                }
-                            )
+                                viewModel = viewModel
+                            ) {
+                                zipFilePickerLauncher.launch("application/zip")
+                            }
                         }
                     }
                 }
