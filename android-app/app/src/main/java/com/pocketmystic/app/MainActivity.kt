@@ -5,18 +5,27 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pocketmystic.app.ui.DarkEInkBackground
 import com.pocketmystic.app.ui.ShakeToDrawScreen
 import com.pocketmystic.app.viewmodel.MysticViewModel
+import com.pocketmystic.app.data.AppDeck
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MysticViewModel by viewModels()
 
-    // Android Storage Access Framework contract for importing .zip deck archives
     private val zipFilePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -29,18 +38,103 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            val navController = rememberNavController()
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route
+            
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = DarkEInkBackground
             ) {
-                ShakeToDrawScreen(
-                    viewModel = viewModel,
-                    onOpenDeckManager = {
-                        // Launch SAF file picker to select .zip
-                        zipFilePickerLauncher.launch("application/zip")
+                Scaffold(
+                    bottomBar = {
+                        NavigationBar(
+                            containerColor = DarkEInkBackground,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ) {
+                            NavigationBarItem(
+                                icon = { Icon(Icons.Default.Refresh, contentDescription = "Draw") },
+                                label = { Text("Draw") },
+                                selected = currentRoute == "draw",
+                                onClick = { navController.navigate("draw") }
+                            )
+                            NavigationBarItem(
+                                icon = { Icon(Icons.Default.List, contentDescription = "Decks") },
+                                label = { Text("Decks") },
+                                selected = currentRoute == "decks",
+                                onClick = { navController.navigate("decks") }
+                            )
+                        }
                     }
-                )
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "draw",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("draw") {
+                            ShakeToDrawScreen(
+                                viewModel = viewModel,
+                                onOpenDeckManager = {
+                                    navController.navigate("decks")
+                                }
+                            )
+                        }
+                        composable("decks") {
+                            DeckManagerScreen(
+                                viewModel = viewModel,
+                                onImportDeck = {
+                                    zipFilePickerLauncher.launch("application/zip")
+                                }
+                            )
+                        }
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun DeckManagerScreen(
+    viewModel: MysticViewModel,
+    onImportDeck: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "Deck Manager",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(onClick = onImportDeck) {
+            Text("Import ZIP Deck")
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        uiState.decks.forEach { deck ->
+            ListItem(
+                headlineContent = { Text(deck.name) },
+                supportingContent = { Text(deck.description) },
+                trailingContent = {
+                    if (uiState.activeDeck?.id == deck.id) {
+                        Text("Active", color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        Button(onClick = { viewModel.selectDeck(deck) }) {
+                            Text("Select")
+                        }
+                    }
+                }
+            )
         }
     }
 }

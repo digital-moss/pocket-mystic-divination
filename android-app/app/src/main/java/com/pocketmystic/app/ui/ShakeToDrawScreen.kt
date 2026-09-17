@@ -21,12 +21,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.decode.SvgDecoder
 import com.pocketmystic.app.sensor.ShakeDetector
 import com.pocketmystic.app.viewmodel.MysticViewModel
+import com.pocketmystic.app.data.AppCard
 
 val DarkEInkBackground = Color(0xFF121212)
 val EInkBorderColor = Color(0xFF282828)
@@ -42,14 +44,12 @@ fun ShakeToDrawScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Register physical accelerometer sensor listener with Compose lifecycle
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val shakeDetector = ShakeDetector {
             viewModel.onShakeTriggered()
         }
         shakeDetector.register(sensorManager)
-
         onDispose {
             shakeDetector.unregister(sensorManager)
         }
@@ -69,7 +69,6 @@ fun ShakeToDrawScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top Minimal Status Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,7 +95,6 @@ fun ShakeToDrawScreen(
             }
         }
 
-        // Center 3D Flipping Card
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -122,18 +120,25 @@ fun ShakeToDrawScreen(
                     .clickable { viewModel.flipCard() }
             ) {
                 if (rotationY < 90f) {
-                    // Card Back (E-ink geometric pattern)
                     CardBack()
                 } else {
-                    // Card Front Face with Coil image
                     if (currentCard != null) {
+                        // Data handling for SVGs vs Files
+                        val model = if (currentCard.imageUrl.startsWith("<svg")) {
+                            currentCard.imageUrl.toByteArray()
+                        } else {
+                            currentCard.imageUrl
+                        }
+
                         AsyncImage(
-                            model = currentCard.imageFile,
+                            model = ImageRequest.Builder(context)
+                                .data(model)
+                                .decoderFactory(SvgDecoder.Factory())
+                                .build(),
                             contentDescription = currentCard.name,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
-                                    // Mirror front face back so image is not inverted
                                     this.rotationY = 180f
                                 },
                             contentScale = ContentScale.Crop
@@ -145,7 +150,6 @@ fun ShakeToDrawScreen(
             }
         }
 
-        // Bottom Controls & Prompt
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier

@@ -4,11 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.pocketmystic.app.data.JournalEntryEntity
-import com.pocketmystic.app.data.MysticDatabase
+import com.pocketmystic.app.data.*
 import com.pocketmystic.app.engine.DeckImporter
-import com.pocketmystic.app.engine.ImportedDeck
-import com.pocketmystic.app.engine.ParsedCard
 import com.pocketmystic.app.sensor.HapticManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,8 +16,9 @@ import java.io.File
 import kotlin.random.Random
 
 data class DrawState(
-    val activeDeck: ImportedDeck? = null,
-    val currentCard: ParsedCard? = null,
+    val decks: List<AppDeck> = DefaultDecks.INITIAL_DECKS,
+    val activeDeck: AppDeck? = DefaultDecks.INITIAL_DECKS.firstOrNull(),
+    val currentCard: AppCard? = null,
     val isFlipped: Boolean = false,
     val isReversed: Boolean = false,
     val isShuffling: Boolean = false,
@@ -38,55 +36,59 @@ class MysticViewModel(application: Application) : AndroidViewModel(application) 
     private val journalDao = MysticDatabase.getInstance(application.applicationContext).journalDao()
 
     init {
-        loadDefaultDecksFromStorage()
+        loadImportedDecks()
     }
 
-    /**
-     * Loads any pre-existing decks from context.filesDir/decks/
-     */
-    private fun loadDefaultDecksFromStorage() {
+    private fun loadImportedDecks() {
         viewModelScope.launch {
             val decksDir = File(getApplication<Application>().filesDir, "decks")
             if (decksDir.exists() && decksDir.isDirectory) {
-                val deckFolders = decksDir.listFiles { file -> file.isDirectory }
-                val firstDeck = deckFolders?.firstOrNull()
-
-                if (firstDeck != null) {
-                    val images = firstDeck.listFiles { f ->
+                val deckFolders = decksDir.listFiles { file -> file.isDirectory } ?: emptyArray()
+                val importedDecks = deckFolders.mapNotNull { folder ->
+                    val images = folder.listFiles { f ->
                         f.extension.lowercase() in setOf("png", "jpg", "jpeg", "webp")
                     } ?: emptyArray()
 
                     if (images.isNotEmpty()) {
                         val cards = images.mapIndexed { idx, file ->
                             val (index, name) = DeckImporter.parseCardMetadata(file.name, idx)
-                            ParsedCard(index, name, file)
+                            AppCard(index, name, file.absolutePath)
                         }.sortedBy { it.index }
 
-                        _uiState.update {
-                            it.copy(
-                                activeDeck = ImportedDeck(
-                                    deckId = firstDeck.name,
-                                    name = firstDeck.name.replace("_", " "),
-                                    cards = cards,
-                                    deckDirectory = firstDeck
-                                )
-                            )
-                        }
-                    }
+                        AppDeck(
+                            id = folder.name,
+                            name = folder.name.replace("_", " "),
+                            description = "Imported custom deck",
+                            cardCount = cards.size,
+                            isCustom = true,
+                            cards = cards
+                        )
+                    } else null
+                }
+                
+                _uiState.update { state ->
+                    val allDecks = DefaultDecks.INITIAL_DECKS + importedDecks
+                    state.copy(
+                        decks = allDecks,
+                        activeDeck = state.activeDeck ?: allDecks.firstOrNull()
+                    )
                 }
             }
         }
     }
 
-    /**
-     * Import a new ZIP deck from Storage Access Framework URI
-     */
+    fun selectDeck(deck: AppDeck) {
+        _uiState.update { it.copy(activeDeck = deck, currentCard = null, isFlipped = false) }
+    }
+
     fun importZipDeck(uri: Uri, deckName: String) {
         viewModelScope.launch {
             DeckImporter.importDeckFromZip(getApplication(), uri, deckName)
                 .onSuccess { imported ->
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { state ->
+                        val newDecks = state.decks + imported
+                        state.copy(
+                            decks = newDecks,
                             activeDeck = imported,
                             currentCard = null,
                             isFlipped = false,
@@ -96,22 +98,16 @@ class MysticViewModel(application: Application) : AndroidViewModel(application) 
                     hapticManager.performCardRevealHaptic()
                 }
                 .onFailure { error ->
-                    _uiState.update {
-                        it.copy(errorMessage = error.localizedMessage ?: "Failed to import ZIP")
-                    }
+                    _uiState.update { it.copy(errorMessage = error.localizedMessage ?: "Failed to import ZIP") }
                 }
         }
     }
 
-    /**
-     * Triggered by physical shake accelerometer or manual shuffle button
-     */
     fun onShakeTriggered() {
         val deck = _uiState.value.activeDeck ?: return
         if (deck.cards.isEmpty()) return
 
         hapticManager.performShuffleTick()
-
         _uiState.update { it.copy(isShuffling = true) }
 
         // Pick random card and reversal orientation
@@ -130,14 +126,11 @@ class MysticViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /**
-     * Flips card with tactile reveal haptic
-     */
     fun flipCard() {
         val currentFlipped = _uiState.value.isFlipped
         _uiState.update { it.copy(isFlipped = !currentFlipped) }
 
-        if (!_uiState.value.isFlipped) {
+        if (_uiState.value.isFlipped) {
             hapticManager.performCardRevealHaptic()
             logCurrentDrawToJournal()
         } else {
@@ -158,7 +151,7 @@ class MysticViewModel(application: Application) : AndroidViewModel(application) 
                     deckName = deck.name,
                     isReversed = state.isReversed,
                     timestamp = state.drawTimestamp ?: System.currentTimeMillis(),
-                    imagePath = card.imageFile.absolutePath,
+                    imagePath = card.imageUrl,
                     notes = ""
                 )
             )

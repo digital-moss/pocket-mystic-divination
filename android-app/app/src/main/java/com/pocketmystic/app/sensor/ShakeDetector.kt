@@ -16,9 +16,9 @@ class ShakeDetector(
 ) : SensorEventListener {
 
     companion object {
-        private const val SHAKE_THRESHOLD_VELOCITY = 800
+        private const val SHAKE_THRESHOLD_VELOCITY = 350 // Lowered from 600 for better sensitivity
         private const val UPDATE_INTERVAL_MS = 100L
-        private const val SHAKE_COOLDOWN_MS = 800L
+        private const val SHAKE_COOLDOWN_MS = 1000L // Increased for better debounce
     }
 
     private var lastUpdate: Long = 0L

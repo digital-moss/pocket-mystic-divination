@@ -1,7 +1,7 @@
 package com.pocketmystic.app.engine
 
-import android.content.Context
-import android.net.Uri
+import com.pocketmystic.app.data.AppCard
+import com.pocketmystic.app.data.AppDeck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -10,19 +10,6 @@ import java.io.InputStream
 import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
-
-data class ParsedCard(
-    val index: Int,
-    val name: String,
-    val imageFile: File
-)
-
-data class ImportedDeck(
-    val deckId: String,
-    val name: String,
-    val cards: List<ParsedCard>,
-    val deckDirectory: File
-)
 
 object DeckImporter {
 
@@ -43,14 +30,14 @@ object DeckImporter {
      * into context.filesDir/decks/{deckName}/ and parses card metadata.
      */
     suspend fun importDeckFromZip(
-        context: Context,
-        zipUri: Uri,
+        context: android.content.Context,
+        zipUri: android.net.Uri,
         fallbackName: String = "Imported Deck"
-    ): Result<ImportedDeck> = withContext(Dispatchers.IO) {
+    ): Result<AppDeck> = withContext(Dispatchers.IO) {
         runCatching {
             val contentResolver = context.contentResolver
             val inputStream: InputStream = contentResolver.openInputStream(zipUri)
-                ?: throw IllegalStateException("Unable to open URI stream: $zipUri")
+                ?: throw IllegalStateException("Unable to open URI stream: ${zipUri}")
 
             // Derive directory name
             val safeDeckName = fallbackName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
@@ -98,21 +85,23 @@ object DeckImporter {
                 throw IllegalArgumentException("No valid image files (.png, .jpg, .webp) found in ZIP archive.")
             }
 
-            // Parse each file into ParsedCard
+            // Parse each file into AppCard
             val parsedCards = extractedFiles.mapIndexed { fallbackIdx, file ->
                 val (index, parsedName) = parseCardMetadata(file.name, fallbackIdx)
-                ParsedCard(
+                AppCard(
                     index = index,
                     name = parsedName,
-                    imageFile = file
+                    imageUrl = file.absolutePath
                 )
             }.sortedBy { it.index }
 
-            ImportedDeck(
-                deckId = safeDeckName,
+            AppDeck(
+                id = safeDeckName,
                 name = fallbackName,
-                cards = parsedCards,
-                deckDirectory = targetDeckDir
+                description = "Imported custom deck",
+                cardCount = parsedCards.size,
+                isCustom = true,
+                cards = parsedCards
             )
         }
     }
