@@ -5,6 +5,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.10.0"
+}
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -13,9 +16,7 @@ dependencyResolutionManagement {
     }
     versionCatalogs {
         create("libs") {
-            plugin("android-application", "com.android.application").version("8.2.2")
-            plugin("kotlin-android", "org.jetbrains.kotlin.android").version("1.9.22")
-            plugin("kotlin-kapt", "org.jetbrains.kotlin.kapt").version("1.9.22")
+            from(files("gradle/libs.versions.toml"))
         }
     }
 }
